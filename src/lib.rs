@@ -29,7 +29,7 @@ where
     Data: AsRef<u8> + Serialize,
     Id: PeerId,
     Pe: Peer<Id>,
-    PL: PeerList<Id, E, Item = Pe> + Iterator,
+    PL: PeerList<Id, E, Item = Pe>,
 {
     type Configuration = TCPtransportCfg;
 
@@ -67,7 +67,12 @@ where
 
     fn broadcast(&mut self, peers: &mut PL, data: Data) -> Result<()> {
         for p in peers {
-            self.send(p.get_net_addr(), data)?;
+            let mut stream = TcpStream::connect(p.get_net_addr())?;
+            let bytes = serialize(&data)?;
+            let sent = stream.write(&bytes)?;
+            if sent != bytes.len() {
+                return Err(Error::Incomplete);
+            }
         }
         Ok(())
     }
