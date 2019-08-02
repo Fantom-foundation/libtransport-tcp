@@ -7,3 +7,8 @@ edition = "2018"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+bincode = "1.0.1"
+libcommon-rs = { git = "https://github.com/Fantom-foundation/libcommon-rs" }
+libtransport = { git = "https://github.com/Fantom-foundation/libtransport" }
+serde = "1.0.97"
+serde_derive = "1.0.97"
