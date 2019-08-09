@@ -31,6 +31,10 @@ impl<Data> TransportConfiguration<Data> for TCPtransportCfg<Data> {
         self.channel_pool.push(sender);
         Ok(())
     }
+    fn set_bind_net_addr(&mut self, address: String) -> Result<()> {
+        self.bind_net_addr = address;
+        Ok(())
+    }
 }
 
 impl<Data> TCPtransportCfg<Data> {
