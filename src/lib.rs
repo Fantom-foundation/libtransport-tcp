@@ -58,7 +58,7 @@ where
             Ok(x) => x.len(),
         };
         if n == 0 {
-            // FIXME: check coorect work in case when TCP next block delivery timeout is
+            // FIXME: check correct work in case when TCP next block delivery timeout is
             // greater than read_buffer() read timeout
             break;
         }
