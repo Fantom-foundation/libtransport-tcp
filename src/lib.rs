@@ -117,7 +117,7 @@ where
     Data: AsRef<u8> + Serialize + DeserializeOwned + Send + Clone,
     Id: PeerId,
     Pe: Peer<Id>,
-    PL: PeerList<Id, E, Item = Pe>,
+    PL: PeerList<Id, E, P = Pe>,
 {
     type Configuration = TCPtransportCfg<Data>;
 
@@ -147,7 +147,7 @@ where
     }
 
     fn broadcast(&mut self, peers: &mut PL, data: Data) -> Result<()> {
-        for p in peers {
+        for p in peers.iter() {
             let mut stream = TcpStream::connect(p.get_net_addr())?;
             let bytes = serialize(&data)?;
             let sent = stream.write(&bytes)?;
