@@ -23,6 +23,13 @@ pub struct TCPtransportCfg<Data> {
 }
 
 impl<Data> TransportConfiguration<Data> for TCPtransportCfg<Data> {
+    fn new(set_bind_net_addr: String) -> Self {
+        TCPtransportCfg {
+            bind_net_addr: set_bind_net_addr,
+            channel_pool: Vec::with_capacity(1),
+            quit_rx: None,
+        }
+    }
     fn register_channel(&mut self, sender: Sender<Data>) -> Result<()> {
         // Vec::push() panics when number of elements overflows `usize`
         if self.channel_pool.len() == std::usize::MAX {
