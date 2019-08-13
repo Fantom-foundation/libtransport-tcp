@@ -1,4 +1,5 @@
 extern crate buffer;
+extern crate libtransport;
 extern crate serde_derive;
 
 use bincode::{deserialize, serialize};
@@ -75,20 +76,25 @@ where
         }
     }
     let data: D = deserialize::<D>(&buffer).unwrap();
+    //dbg!(buffer);
     let cfg = cfg_mutexed.lock().unwrap();
+    //dbg!(cfg.channel_pool.len());
     for ch in cfg.channel_pool.iter() {
+        //println!("sending to channel.");
         ch.send(data.clone()).unwrap();
     }
 }
 
 fn listener<Data: 'static>(cfg_mutexed: Arc<Mutex<TCPtransportCfg<Data>>>)
 where
-    Data: AsRef<u8> + Serialize + DeserializeOwned + Send + Clone,
+    Data: Serialize + DeserializeOwned + Send + Clone,
 {
     // FIXME: what we do with unwrap() in threads?
     let config = Arc::clone(&cfg_mutexed);
-    let cfg = config.lock().unwrap();
-    let listener = TcpListener::bind(cfg.bind_net_addr.clone()).unwrap();
+    let listener = {
+        let cfg = config.lock().unwrap();
+        TcpListener::bind(cfg.bind_net_addr.clone()).unwrap()
+    };
     listener
         .set_nonblocking(true)
         .expect("unable to set non-blocking");
@@ -96,6 +102,7 @@ where
         match stream {
             Err(ref e) if e.kind() == io::ErrorKind::WouldBlock => {
                 // check if quit channel got message
+                let cfg = config.lock().unwrap();
                 match &cfg.quit_rx {
                     None => {}
                     Some(ch) => {
@@ -125,7 +132,7 @@ impl<Data> Drop for TCPtransport<Data> {
 
 impl<Id, Pe, Data: 'static, E, PL> Transport<Id, Data, E, PL> for TCPtransport<Data>
 where
-    Data: AsRef<u8> + Serialize + DeserializeOwned + Send + Clone,
+    Data: Serialize + DeserializeOwned + Send + Clone,
     Id: PeerId,
     Pe: Peer<Id>,
     PL: PeerList<Id, E, P = Pe>,
@@ -159,6 +166,7 @@ where
 
     fn broadcast(&mut self, peers: &mut PL, data: Data) -> Result<()> {
         for p in peers.iter() {
+            //dbg!(p.get_net_addr());
             let mut stream = TcpStream::connect(p.get_net_addr())?;
             let bytes = serialize(&data)?;
             let sent = stream.write(&bytes)?;
@@ -179,8 +187,22 @@ where
 
 #[cfg(test)]
 mod tests {
+    use super::*;
+    extern crate libtransport;
+    use libtransport::generic_test as lits;
+
     #[test]
     fn it_works() {
         assert_eq!(2 + 2, 4);
+    }
+
+    #[test]
+    fn common() {
+        let a: Vec<String> = vec![
+            String::from("127.0.0.1:9000"),
+            String::from("127.0.0.1:9001"),
+            String::from("127.0.0.1:9002"),
+        ];
+        lits::common_test::<TCPtransportCfg<lits::Data>, TCPtransport<lits::Data>>(a);
     }
 }
