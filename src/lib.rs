@@ -7,6 +7,7 @@ use buffer::ReadBuffer;
 use libcommon_rs::peer::{Peer, PeerId, PeerList};
 use libtransport::errors::{Error, Error::AtMaxVecCapacity, Result};
 use libtransport::{Transport, TransportConfiguration};
+use os_pipe::PipeWriter;
 use serde::de::DeserializeOwned;
 use serde::Serialize;
 use std::io;
@@ -20,6 +21,9 @@ use std::thread::JoinHandle;
 pub struct TCPtransportCfg<Data> {
     bind_net_addr: String,
     channel_pool: Vec<Sender<Data>>,
+    pipe_pool: Vec<PipeWriter>,
+    callback_pool: Vec<fn(data: Data) -> bool>,
+    callback_timeout: u64,
     quit_rx: Option<Receiver<()>>,
 }
 
@@ -28,6 +32,9 @@ impl<Data> TransportConfiguration<Data> for TCPtransportCfg<Data> {
         TCPtransportCfg {
             bind_net_addr: set_bind_net_addr,
             channel_pool: Vec::with_capacity(1),
+            pipe_pool: Vec::with_capacity(1),
+            callback_pool: Vec::with_capacity(1),
+            callback_timeout: 100, // 100 millisecond timeout by default
             quit_rx: None,
         }
     }
@@ -38,6 +45,25 @@ impl<Data> TransportConfiguration<Data> for TCPtransportCfg<Data> {
         }
         self.channel_pool.push(sender);
         Ok(())
+    }
+    fn register_os_pipe(&mut self, sender: PipeWriter) -> Result<()> {
+        // Vec::push() panics when number of elements overflows `usize`
+        if self.pipe_pool.len() == std::usize::MAX {
+            return Err(AtMaxVecCapacity);
+        }
+        self.pipe_pool.push(sender);
+        Ok(())
+    }
+    fn register_callback(&mut self, callback: fn(data: Data) -> bool) -> Result<()> {
+        // Vec::push() panics when number of elements overflows `usize`
+        if self.callback_pool.len() == std::usize::MAX {
+            return Err(AtMaxVecCapacity);
+        }
+        self.callback_pool.push(callback);
+        Ok(())
+    }
+    fn set_callback_timeout(&mut self, timeout: u64) {
+        self.callback_timeout = timeout;
     }
     fn set_bind_net_addr(&mut self, address: String) -> Result<()> {
         self.bind_net_addr = address;
@@ -178,11 +204,11 @@ where
         Ok(())
     }
 
-    fn register_channel(&mut self, sender: Sender<Data>) -> Result<()> {
-        let mut cfg = self.config.lock()?;
-        cfg.register_channel(sender)?;
-        Ok(())
-    }
+    //    fn register_channel(&mut self, sender: Sender<Data>) -> Result<()> {
+    //        let mut cfg = self.config.lock()?;
+    //        cfg.register_channel(sender)?;
+    //        Ok(())
+    //    }
 }
 
 #[cfg(test)]
