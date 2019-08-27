@@ -1,76 +1,66 @@
-extern crate buffer;
-extern crate libtransport;
-extern crate serde_derive;
-
 use bincode::{deserialize, serialize};
 use buffer::ReadBuffer;
 use futures::stream::Stream;
-use futures::task::Context;
-use futures::task::Poll;
-use futures::task::Waker;
+use futures::task::{Context, Poll, Waker};
 use libcommon_rs::peer::{Peer, PeerId, PeerList};
 use libtransport::errors::{Error, Result};
 use libtransport::{Transport, TransportConfiguration};
 use serde::de::DeserializeOwned;
 use serde::Serialize;
-use std::io;
-use std::io::Write;
+use std::io::{self, Write};
 use std::marker::PhantomData;
+use std::net::SocketAddr;
 use std::net::{TcpListener, TcpStream};
 use std::pin::Pin;
 use std::sync::mpsc::{self, Receiver, Sender};
 use std::sync::{Arc, Mutex};
-use std::thread;
-use std::thread::JoinHandle;
+use std::thread::{self, JoinHandle};
 
-pub struct TCPtransportCfg<Data> {
-    bind_net_addr: String,
+#[derive(Debug)]
+pub struct TcpTransportCfg<Data> {
+    bind_net_addr: SocketAddr,
     quit_rx: Option<Receiver<()>>,
     listener: TcpListener,
     waker: Option<Waker>,
     phantom: PhantomData<Data>,
 }
 
-impl<Data> TransportConfiguration<Data> for TCPtransportCfg<Data> {
-    fn new(set_bind_net_addr: String) -> Result<Self> {
-        let listener = TcpListener::bind(set_bind_net_addr.clone())?;
-        listener
-            .set_nonblocking(true)
-            .expect("unable to set non-blocking");
-        Ok(TCPtransportCfg {
-            bind_net_addr: set_bind_net_addr,
+impl<Data> TransportConfiguration<Data> for TcpTransportCfg<Data> {
+    fn new(bind_net_addr: &str) -> Result<Self> {
+        let addr: SocketAddr = bind_net_addr.parse().map_err(Error::AddrParse)?;
+        let listener = TcpListener::bind(&addr)?;
+        Ok(TcpTransportCfg {
+            bind_net_addr: addr,
             quit_rx: None,
             listener,
             waker: None,
             phantom: PhantomData,
         })
     }
-    fn set_bind_net_addr(&mut self, address: String) -> Result<()> {
-        self.bind_net_addr = address;
-        let listener = TcpListener::bind(self.bind_net_addr.clone()).unwrap();
-        listener
-            .set_nonblocking(true)
-            .expect("unable to set non-blocking");
-        use std::mem;
-        drop(mem::replace(&mut self.listener, listener));
+
+    fn set_bind_net_addr(&mut self, address: &str) -> Result<()> {
+        let addr: SocketAddr = address.parse().map_err(Error::AddrParse)?;
+        self.bind_net_addr = addr;
+        let listener = TcpListener::bind(&addr)?;
+        self.listener = listener;
         Ok(())
     }
 }
 
-impl<Data> TCPtransportCfg<Data> {
+impl<Data> TcpTransportCfg<Data> {
     fn set_quit_rx(&mut self, rx: Receiver<()>) {
         self.quit_rx = Some(rx);
     }
 }
 
-//#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
-pub struct TCPtransport<Data> {
-    config: Arc<Mutex<TCPtransportCfg<Data>>>,
+#[derive(Debug)]
+pub struct TcpTransport<Data> {
+    config: Arc<Mutex<TcpTransportCfg<Data>>>,
     quit_tx: Sender<()>,
     server_handle: Option<JoinHandle<()>>,
 }
 
-fn listener<Data: 'static>(cfg_mutexed: Arc<Mutex<TCPtransportCfg<Data>>>)
+fn listener<Data: 'static>(cfg_mutexed: Arc<Mutex<TcpTransportCfg<Data>>>)
 where
     Data: Serialize + DeserializeOwned + Send + Clone,
 {
@@ -94,21 +84,21 @@ where
     }
 }
 
-impl<Data> Drop for TCPtransport<Data> {
+impl<Data> Drop for TcpTransport<Data> {
     fn drop(&mut self) {
         self.quit_tx.send(()).unwrap();
         self.server_handle.take().unwrap().join().unwrap();
     }
 }
 
-impl<Id, Pe, Data: 'static, E, PL> Transport<Id, Data, E, PL> for TCPtransport<Data>
+impl<Id, Pe, Data: 'static, E, PL> Transport<Id, Data, E, PL> for TcpTransport<Data>
 where
     Data: Serialize + DeserializeOwned + Send + Clone,
     Id: PeerId,
     Pe: Peer<Id>,
     PL: PeerList<Id, E, P = Pe>,
 {
-    type Configuration = TCPtransportCfg<Data>;
+    type Configuration = TcpTransportCfg<Data>;
 
     fn new(mut cfg: Self::Configuration) -> Self {
         let (tx, rx) = mpsc::channel();
@@ -116,15 +106,14 @@ where
         let cfg_mutexed = Arc::new(Mutex::new(cfg));
         let config = Arc::clone(&cfg_mutexed);
         let handle = thread::spawn(|| listener(config));
-        TCPtransport {
-            //            quit_rx: rx,
+        TcpTransport {
             quit_tx: tx,
             server_handle: Some(handle),
             config: cfg_mutexed,
         }
     }
 
-    fn send(&mut self, peer_address: String, data: Data) -> Result<()> {
+    fn send(&mut self, peer_address: &str, data: Data) -> Result<()> {
         let mut stream = TcpStream::connect(peer_address)?;
         let bytes = serialize(&data)?;
         let sent = stream.write(&bytes)?;
@@ -150,9 +139,9 @@ where
     }
 }
 
-impl<D> Unpin for TCPtransport<D> {}
+impl<D> Unpin for TcpTransport<D> {}
 
-impl<Data> Stream for TCPtransport<Data>
+impl<Data> Stream for TcpTransport<Data>
 where
     Data: DeserializeOwned,
 {
@@ -208,17 +197,12 @@ mod tests {
     use libtransport::generic_test as lits;
 
     #[test]
-    fn it_works() {
-        assert_eq!(2 + 2, 4);
-    }
-
-    #[test]
     fn common() {
         let a: Vec<String> = vec![
             String::from("127.0.0.1:9000"),
             String::from("127.0.0.1:9001"),
             String::from("127.0.0.1:9002"),
         ];
-        lits::common_test::<TCPtransportCfg<lits::Data>, TCPtransport<lits::Data>>(a);
+        lits::common_test::<TcpTransportCfg<lits::Data>, TcpTransport<lits::Data>>(a);
     }
 }
