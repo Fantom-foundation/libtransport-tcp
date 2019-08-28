@@ -32,18 +32,18 @@ pub struct TCPtransportCfg<Data> {
 }
 
 impl<Data> TransportConfiguration<Data> for TCPtransportCfg<Data> {
-    fn new(set_bind_net_addr: String) -> Self {
-        let listener = TcpListener::bind(set_bind_net_addr.clone()).unwrap();
+    fn new(set_bind_net_addr: String) -> Result<Self> {
+        let listener = TcpListener::bind(set_bind_net_addr.clone())?;
         listener
             .set_nonblocking(true)
             .expect("unable to set non-blocking");
-        TCPtransportCfg {
+        Ok(TCPtransportCfg {
             bind_net_addr: set_bind_net_addr,
             quit_rx: None,
             listener,
             waker: None,
             phantom: PhantomData,
-        }
+        })
     }
     fn set_bind_net_addr(&mut self, address: String) -> Result<()> {
         self.bind_net_addr = address;
