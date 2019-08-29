@@ -15,8 +15,7 @@ bincode = "1.1.4"
 buffer = "0.1.8"
 futures-preview = { version = "=0.3.0-alpha.17" }
 libcommon-rs = { git = "https://github.com/Fantom-foundation/libcommon-rs" }
-# libtransport = { git = "https://github.com/Fantom-foundation/libtransport" }
-libtransport = { path = "../libtransport" }
+libtransport = { git = "https://github.com/Fantom-foundation/libtransport" }
 serde = "1.0.98"
 serde_derive = "1.0.98"
 tokio = "0.2.0-alpha.1"

@@ -27,8 +27,9 @@ pub struct TcpTransportCfg<Data> {
 
 impl<Data> TransportConfiguration<Data> for TcpTransportCfg<Data> {
     fn new(bind_net_addr: &str) -> Result<Self> {
-        let addr: SocketAddr = bind_net_addr.parse().map_err(Error::AddrParse)?;
+        let addr: SocketAddr = bind_net_addr.parse()?;
         let listener = TcpListener::bind(&addr)?;
+        listener.set_nonblocking(true)?;
         Ok(TcpTransportCfg {
             bind_net_addr: addr,
             quit_rx: None,
@@ -39,9 +40,10 @@ impl<Data> TransportConfiguration<Data> for TcpTransportCfg<Data> {
     }
 
     fn set_bind_net_addr(&mut self, address: &str) -> Result<()> {
-        let addr: SocketAddr = address.parse().map_err(Error::AddrParse)?;
+        let addr: SocketAddr = address.parse()?;
         self.bind_net_addr = addr;
         let listener = TcpListener::bind(&addr)?;
+        listener.set_nonblocking(true)?;
         self.listener = listener;
         Ok(())
     }
