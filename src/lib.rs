@@ -101,17 +101,16 @@ impl<Data> Drop for TCPtransport<Data> {
     }
 }
 
-impl<Id, Pe, Data: 'static, E, PL> Transport<Id, Data, E, PL, TCPtransportCfg<Data>>
-    for TCPtransport<Data>
+impl<Id, Pe, Data: 'static, E, PL> Transport<Id, Data, E, PL> for TCPtransport<Data>
 where
     Data: Serialize + DeserializeOwned + Send + Clone,
     Id: PeerId,
     Pe: Peer<Id>,
     PL: PeerList<Id, E, P = Pe>,
 {
-    //type Configuration = TCPtransportCfg<Data>;
+    type Configuration = TCPtransportCfg<Data>;
 
-    fn new(mut cfg: TCPtransportCfg<Data>) -> Self {
+    fn new(mut cfg: Self::Configuration) -> Self {
         let (tx, rx) = mpsc::channel();
         cfg.set_quit_rx(rx);
         let cfg_mutexed = Arc::new(Mutex::new(cfg));
