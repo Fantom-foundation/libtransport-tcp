@@ -10,7 +10,7 @@ use futures::task::Poll;
 use futures::task::Waker;
 use libcommon_rs::peer::{Peer, PeerId, PeerList};
 use libtransport::errors::{Error, Result};
-use libtransport::{Transport, TransportConfiguration};
+use libtransport::Transport;
 use serde::de::DeserializeOwned;
 use serde::Serialize;
 use std::io;
@@ -31,7 +31,7 @@ pub struct TCPtransportCfg<Data> {
     phantom: PhantomData<Data>,
 }
 
-impl<Data> TransportConfiguration<Data> for TCPtransportCfg<Data> {
+impl<Data> TCPtransportCfg<Data> {
     fn new(set_bind_net_addr: String) -> Result<Self> {
         let listener = TcpListener::bind(set_bind_net_addr.clone())?;
         listener
@@ -55,9 +55,6 @@ impl<Data> TransportConfiguration<Data> for TCPtransportCfg<Data> {
         drop(mem::replace(&mut self.listener, listener));
         Ok(())
     }
-}
-
-impl<Data> TCPtransportCfg<Data> {
     fn set_quit_rx(&mut self, rx: Receiver<()>) {
         self.quit_rx = Some(rx);
     }
@@ -108,20 +105,19 @@ where
     Pe: Peer<Id>,
     PL: PeerList<Id, E, P = Pe>,
 {
-    type Configuration = TCPtransportCfg<Data>;
-
-    fn new(mut cfg: Self::Configuration) -> Self {
+    fn new(bind_addr: String) -> Result<Self> {
+        let mut cfg = TCPtransportCfg::<Data>::new(bind_addr)?;
         let (tx, rx) = mpsc::channel();
         cfg.set_quit_rx(rx);
         let cfg_mutexed = Arc::new(Mutex::new(cfg));
         let config = Arc::clone(&cfg_mutexed);
         let handle = thread::spawn(|| listener(config));
-        TCPtransport {
+        Ok(TCPtransport {
             //            quit_rx: rx,
             quit_tx: tx,
             server_handle: Some(handle),
             config: cfg_mutexed,
-        }
+        })
     }
 
     fn send(&mut self, peer_address: String, data: Data) -> Result<()> {
@@ -219,6 +215,6 @@ mod tests {
             String::from("127.0.0.1:9001"),
             String::from("127.0.0.1:9002"),
         ];
-        lits::common_test::<TCPtransportCfg<lits::Data>, TCPtransport<lits::Data>>(a);
+        lits::common_test::<TCPtransport<lits::Data>>(a);
     }
 }
