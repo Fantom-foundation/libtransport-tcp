@@ -29,7 +29,7 @@ use std::thread;
 use std::thread::JoinHandle;
 
 /// A configuration struct used to hold all TCP data for transport. Keeps track on the message
-/// listener, listener address, async waker function, data, and quite receiver.
+/// listener, listener address, async waker function, data, and quit receiver.
 pub struct TCPtransportCfg<Data> {
     bind_net_addr: String,
     quit_rx: Option<Receiver<()>>,
@@ -49,7 +49,7 @@ impl<Data> TCPtransportCfg<Data> {
         listener
             .set_nonblocking(true)
             .expect("unable to set non-blocking");
-        // Return config file with net address, listener, and abase phantom data.
+        // Return config file with net address, listener, and a base phantom data.
         Ok(TCPtransportCfg {
             bind_net_addr: set_bind_net_addr,
             quit_rx: None,
@@ -106,7 +106,7 @@ where
         match &cfg.quit_rx {
             None => {}
             Some(ch) => {
-                // If message is successfully received then quit.
+                // Quit if the message is successfully received
                 if ch.try_recv().is_ok() {
                     break;
                 }
