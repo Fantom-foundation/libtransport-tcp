@@ -29,6 +29,8 @@ use std::sync::{Arc, Mutex};
 use std::thread;
 use std::thread::JoinHandle;
 
+/// A configuration struct used to hold all TCP data for transport. Keeps track on the message
+/// listener, listener address, async waker function, data, and quite receiver.
 pub struct TCPtransportCfg<Data> {
     bind_net_addr: String,
     quit_rx: Option<Receiver<()>>,
@@ -37,12 +39,18 @@ pub struct TCPtransportCfg<Data> {
     phantom: PhantomData<Data>,
 }
 
+/// TCPTransportConfig method implementations.
 impl<Data> TCPtransportCfg<Data> {
+    /// Creates a new config struct and binds the inputted address to a TCP listener.
+    /// Requires address to be entered as a String.
     fn new(set_bind_net_addr: String) -> Result<Self> {
+        // Create listener and bind address to it.
         let listener = TcpListener::bind(set_bind_net_addr.clone())?;
+        // Configure listener.
         listener
             .set_nonblocking(true)
             .expect("unable to set non-blocking");
+        // Return config file with net address, listener, and abase phantom data.
         Ok(TCPtransportCfg {
             bind_net_addr: set_bind_net_addr,
             quit_rx: None,
@@ -51,40 +59,55 @@ impl<Data> TCPtransportCfg<Data> {
             phantom: PhantomData,
         })
     }
+    /// Allows the modification of the net address of the transport config.
+    /// Requires address to be added as String.
     fn set_bind_net_addr(&mut self, address: String) -> Result<()> {
+        // Set config address to the new address.
         self.bind_net_addr = address;
+        // Create a new listener and bind new address to it.
         let listener = TcpListener::bind(self.bind_net_addr.clone()).unwrap();
+        // Configure listener
         listener
             .set_nonblocking(true)
             .expect("unable to set non-blocking");
         use std::mem;
+        // Replace config listener with new listener and drop old listener.
         drop(mem::replace(&mut self.listener, listener));
         Ok(())
     }
+    /// Set the quit receiver to the inputted receiver.
     fn set_quit_rx(&mut self, rx: Receiver<()>) {
         self.quit_rx = Some(rx);
     }
 }
 
 //#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+/// Struct which will be implementing the Transport trait.
+/// Requires transportconfig to be wrapped in a mutex + arc combination.
 pub struct TCPtransport<Data> {
+    // The configuration struct (defined above)
     config: Arc<Mutex<TCPtransportCfg<Data>>>,
     quit_tx: Sender<()>,
     server_handle: Option<JoinHandle<()>>,
 }
 
+/// Checks for quit messages, as well as wake method availabilities. If a wake method becomes available,
+/// then execute method. If quit is received, then exit loop.
 fn listener<Data: 'static>(cfg_mutexed: Arc<Mutex<TCPtransportCfg<Data>>>)
 where
     Data: Serialize + DeserializeOwned + Send + Clone,
 {
     // FIXME: what we do with unwrap() in threads?
+    // Clone the inputted config struct.
     let config = Arc::clone(&cfg_mutexed);
+    // Loop continuously, check for wake methods or quit messages.
     loop {
         // check if quit channel got message
         let mut cfg = config.lock().unwrap();
         match &cfg.quit_rx {
             None => {}
             Some(ch) => {
+                // If message is successfully received then quit.
                 if ch.try_recv().is_ok() {
                     break;
                 }
