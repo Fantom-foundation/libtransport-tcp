@@ -1,8 +1,8 @@
 /// # Fantom Libtransport-tcp
 ///
-/// This library is an asynchronous TCP implementation of the Transport trait in libtransport
-/// (https://github.com/Fantom-foundation/libtransport). This library can be tested using the
-/// 'common_test' method in libtransport/generic_tests.
+/// This library is TCP implementation of the Transport trait in libtransport in async/.await
+/// framework of the Rust. (https://github.com/Fantom-foundation/libtransport).This library can be
+/// tested using the 'common_test' method in libtransport/generic_tests.
 extern crate buffer;
 extern crate libtransport;
 extern crate serde_derive;

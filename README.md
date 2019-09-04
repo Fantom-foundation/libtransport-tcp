@@ -16,7 +16,7 @@ We use [rust-clippy](https://github.com/rust-lang-nursery/rust-clippy) linters t
 
 There are plenty of [IDEs](https://areweideyet.com) and other [Rust development tools to consider](https://github.com/rust-unofficial/awesome-rust#development-tools).
 
-Currently, the library provides TCP as the main transport variant. Other data structures such as the Peer, PeerId, 
+This crate provides a TCP-based implementation of the libtransport crate. Other data structures such as the Peer, PeerId, 
 PeerList and Data must be defined by the developer for their individual use case. A simple example of a method which can 
 use this trait is the common_test method in libtransport:
 
