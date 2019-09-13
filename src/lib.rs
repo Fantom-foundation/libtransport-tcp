@@ -80,7 +80,6 @@ impl<Data> TCPtransportCfg<Data> {
     }
 }
 
-//#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 /// Struct which will be implementing the Transport trait.
 /// Requires transportconfig to be wrapped in a mutex + arc combination.
 pub struct TCPtransport<Data> {
@@ -94,7 +93,7 @@ pub struct TCPtransport<Data> {
 /// then execute method. If quit is received, then exit loop.
 fn listener<Data: 'static>(cfg_mutexed: Arc<Mutex<TCPtransportCfg<Data>>>)
 where
-    Data: Serialize + DeserializeOwned + Send + Clone,
+    Data: Send + Clone,
 {
     // FIXME: what we do with unwrap() in threads?
     // Clone the inputted config struct.
@@ -268,6 +267,9 @@ where
         Poll::Pending
     }
 }
+
+pub mod receiver;
+pub mod sender;
 
 /// Tests
 #[cfg(test)]
