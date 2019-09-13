@@ -38,7 +38,7 @@ impl<Id, Pe, Data: 'static, E, PL> TransportReceiver<Id, Data, E, PL> for TCPrec
 where
     Data: DeserializeOwned + Send + Clone,
     Id: PeerId,
-    Pe: Peer<Id>,
+    Pe: Peer<Id, E>,
     PL: PeerList<Id, E, P = Pe>,
 {
     /// Create a new TCPtransport struct and configure its values.
