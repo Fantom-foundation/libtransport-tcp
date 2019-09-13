@@ -64,7 +64,7 @@ impl<Data> TCPtransportCfg<Data> {
         // Set config address to the new address.
         self.bind_net_addr = address;
         // Create a new listener and bind new address to it.
-        let listener = TcpListener::bind(self.bind_net_addr.clone()).unwrap();
+        let listener = TcpListener::bind(self.bind_net_addr.clone())?;
         // Configure listener
         listener
             .set_nonblocking(true)
@@ -277,12 +277,14 @@ mod tests {
     use libtransport::generic_test as lits;
 
     #[test]
-    fn common() {
+    fn common() -> Result<()>{
         let a: Vec<String> = vec![
             String::from("127.0.0.1:9000"),
             String::from("127.0.0.1:9001"),
             String::from("127.0.0.1:9002"),
         ];
-        lits::common_test::<TCPtransport<lits::Data>>(a);
+
+        lits::common_test::<TCPtransport<lits::Data>>(a)?;
+        Ok(())
     }
 }
