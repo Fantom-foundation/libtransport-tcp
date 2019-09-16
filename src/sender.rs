@@ -8,11 +8,14 @@ use serde::Serialize;
 use std::io::Write;
 use std::net::TcpStream;
 
-pub struct TCPsender<Data> {
-    phantom: PhantomData<Data>,
+pub struct TCPsender<Id, Data, E, PL> {
+    id: PhantomData<Id>,
+    data: PhantomData<Data>,
+    e: PhantomData<E>,
+    pl: PhantomData<PL>,
 }
 
-impl<Id, Pe, Data: 'static, E, PL> TransportSender<Id, Data, E, PL> for TCPsender<Data>
+impl<Id, Pe, Data: 'static, E, PL> TransportSender<Id, Data, E, PL> for TCPsender<Id, Data, E, PL>
 where
     Data: Serialize + Send + Clone,
     Id: PeerId,
@@ -20,8 +23,11 @@ where
     PL: PeerList<Id, E, P = Pe>,
 {
     fn new() -> Result<Self> {
-        Ok(TCPsender {
-            phantom: PhantomData,
+        Ok(TCPsender::<Id, Data, E, PL> {
+            id: PhantomData,
+            data: PhantomData,
+            e: PhantomData,
+            pl: PhantomData,
         })
     }
     /// Sends data to a single, specified peer.
