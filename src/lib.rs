@@ -82,11 +82,14 @@ impl<Data> TCPtransportCfg<Data> {
 
 /// Struct which will be implementing the Transport trait.
 /// Requires transportconfig to be wrapped in a mutex + arc combination.
-pub struct TCPtransport<Data> {
+pub struct TCPtransport<Id, Data, E, PL> {
     // The configuration struct (defined above)
     config: Arc<Mutex<TCPtransportCfg<Data>>>,
     quit_tx: Sender<()>,
     server_handle: Option<JoinHandle<()>>,
+    id: PhantomData<Id>,
+    e: PhantomData<E>,
+    pl: PhantomData<PL>,
 }
 
 /// Checks for quit messages, as well as wake method availabilities. If a wake method becomes available,
@@ -119,7 +122,7 @@ where
 }
 
 /// Specify what occurs when TCPtransport is dropped.
-impl<Data> Drop for TCPtransport<Data> {
+impl<Id, Data, E, PL> Drop for TCPtransport<Id, Data, E, PL> {
     fn drop(&mut self) {
         // Send quit message.
         self.quit_tx.send(()).unwrap();
@@ -128,11 +131,11 @@ impl<Data> Drop for TCPtransport<Data> {
 }
 
 /// Implementation of the Transport trait.
-impl<Id, Pe, Data: 'static, E, PL> Transport<Id, Data, E, PL> for TCPtransport<Data>
+impl<Id, Pe, Data: 'static, E, PL> Transport<Id, Data, E, PL> for TCPtransport<Id, Data, E, PL>
 where
     Data: Serialize + DeserializeOwned + Send + Clone,
     Id: PeerId,
-    Pe: Peer<Id>,
+    Pe: Peer<Id, E>,
     PL: PeerList<Id, E, P = Pe>,
 {
     /// Create a new TCPtransport struct and configure its values.
@@ -157,6 +160,9 @@ where
             quit_tx: tx,
             server_handle: Some(handle),
             config: cfg_mutexed,
+            id: PhantomData,
+            e: PhantomData,
+            pl: PhantomData,
         })
     }
 
@@ -178,14 +184,36 @@ where
         Ok(())
     }
 
-    /// Send a message to all peers in a PeerList.
+    /// Send a message to all peers in a PeerList, on base address.
     /// Requires a PeerList and data struct.
     fn broadcast(&mut self, peers: &mut PL, data: Data) -> Result<()> {
         // Iterate over all peers
         for p in peers.iter() {
             //dbg!(p.get_net_addr());
             // Create a TCP stream to the current net address.
-            let mut stream = TcpStream::connect(p.get_net_addr())?;
+            let mut stream = TcpStream::connect(p.get_base_addr())?;
+            // Serialize data to a bytes.
+            let bytes = serialize(&data)?;
+            // Write bytes to the stream.
+            let sent = stream.write(&bytes)?;
+            // Check if sent data is same as the bytes initially made.
+            if sent != bytes.len() {
+                return Err(Error::Incomplete);
+            }
+            // Shut down the stream once the message has been sent.
+            stream.shutdown(std::net::Shutdown::Write)?;
+        }
+        Ok(())
+    }
+
+    /// Send a message to all peers in a PeerList, on base address.
+    /// Requires a PeerList and data struct.
+    fn broadcast_n(&mut self, peers: &mut PL, n: usize, data: Data) -> Result<()> {
+        // Iterate over all peers
+        for p in peers.iter() {
+            //dbg!(p.get_net_addr());
+            // Create a TCP stream to the current net address.
+            let mut stream = TcpStream::connect(p.get_net_addr(n))?;
             // Serialize data to a bytes.
             let bytes = serialize(&data)?;
             // Write bytes to the stream.
@@ -201,11 +229,11 @@ where
     }
 }
 /// Allow TCPtransport to be store in Pin (for async usage)
-impl<D> Unpin for TCPtransport<D> {}
+impl<Id, D, E, PL> Unpin for TCPtransport<Id, D, E, PL> {}
 
 /// Implement stream trait to allow TCPTransport to be used asynchronously. Allows for multiple
 /// values to be yielded by a future.
-impl<Data> Stream for TCPtransport<Data>
+impl<Id, Data, E, PL> Stream for TCPtransport<Id, Data, E, PL>
 where
     Data: DeserializeOwned,
 {
@@ -279,14 +307,20 @@ mod tests {
     use libtransport::generic_test as lits;
 
     #[test]
-    fn common() -> Result<()>{
+    fn common() -> Result<()> {
         let a: Vec<String> = vec![
             String::from("127.0.0.1:9000"),
             String::from("127.0.0.1:9001"),
             String::from("127.0.0.1:9002"),
         ];
-
-        lits::common_test::<TCPtransport<lits::Data>>(a)?;
+        lits::common_test::<
+            TCPtransport<
+                lits::Id,
+                lits::Data,
+                libtransport::errors::Error,
+                lits::TestPeerList<lits::Id>,
+            >,
+        >(a)?;
         Ok(())
     }
 }

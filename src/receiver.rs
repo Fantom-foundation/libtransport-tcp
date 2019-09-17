@@ -2,6 +2,7 @@ use crate::listener;
 use crate::TCPtransportCfg;
 use bincode::deserialize;
 use buffer::ReadBuffer;
+use core::marker::PhantomData;
 use futures::stream::Stream;
 use futures::task::Context;
 use futures::task::Poll;
@@ -17,15 +18,18 @@ use std::thread;
 use std::thread::JoinHandle;
 
 /// Struct which will be implementing the Transport Receiver trait.
-pub struct TCPreceiver<Data> {
-    // The configuration struct (defined above)
+pub struct TCPreceiver<Id, Data, E, PL> {
+    // The configuration struct (defined in lib.rs)
     config: Arc<Mutex<TCPtransportCfg<Data>>>,
     quit_tx: Sender<()>,
     server_handle: Option<JoinHandle<()>>,
+    id: PhantomData<Id>,
+    e: PhantomData<E>,
+    pl: PhantomData<PL>,
 }
 
 /// Specify what occurs when TCPreceiver is dropped.
-impl<Data> Drop for TCPreceiver<Data> {
+impl<Id, Data, E, PL> Drop for TCPreceiver<Id, Data, E, PL> {
     fn drop(&mut self) {
         // Send quit message.
         self.quit_tx.send(()).unwrap();
@@ -34,11 +38,12 @@ impl<Data> Drop for TCPreceiver<Data> {
 }
 
 /// Implementation of the Transport trait.
-impl<Id, Pe, Data: 'static, E, PL> TransportReceiver<Id, Data, E, PL> for TCPreceiver<Data>
+impl<Id, Pe, Data: 'static, E, PL> TransportReceiver<Id, Data, E, PL>
+    for TCPreceiver<Id, Data, E, PL>
 where
     Data: DeserializeOwned + Send + Clone,
     Id: PeerId,
-    Pe: Peer<Id>,
+    Pe: Peer<Id, E>,
     PL: PeerList<Id, E, P = Pe>,
 {
     /// Create a new TCPtransport struct and configure its values.
@@ -63,16 +68,19 @@ where
             quit_tx: tx,
             server_handle: Some(handle),
             config: cfg_mutexed,
+            id: PhantomData,
+            e: PhantomData,
+            pl: PhantomData,
         })
     }
 }
 
 /// Allow TCPreceiver to be store in Pin (for async usage)
-impl<D> Unpin for TCPreceiver<D> {}
+impl<Id, D, E, PL> Unpin for TCPreceiver<Id, D, E, PL> {}
 
 /// Implement stream trait to allow TCPreceiver to be used asynchronously. Allows for multiple
 /// values to be yielded by a future.
-impl<Data> Stream for TCPreceiver<Data>
+impl<Id, Data, E, PL> Stream for TCPreceiver<Id, Data, E, PL>
 where
     Data: DeserializeOwned,
 {
