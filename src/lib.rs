@@ -177,7 +177,7 @@ where
         let sent = stream.write(&bytes)?;
         // Check if sent data is same as the serialized data.
         if sent != bytes.len() {
-            return Err(Error::Incomplete);
+            return Err(Error::Incomplete.into());
         }
         // Shut down the stream once the message is sent.
         stream.shutdown(std::net::Shutdown::Write)?;
@@ -198,7 +198,7 @@ where
             let sent = stream.write(&bytes)?;
             // Check if sent data is same as the bytes initially made.
             if sent != bytes.len() {
-                return Err(Error::Incomplete);
+                return Err(Error::Incomplete.into());
             }
             // Shut down the stream once the message has been sent.
             stream.shutdown(std::net::Shutdown::Write)?;
@@ -220,7 +220,7 @@ where
             let sent = stream.write(&bytes)?;
             // Check if sent data is same as the bytes initially made.
             if sent != bytes.len() {
-                return Err(Error::Incomplete);
+                return Err(Error::Incomplete.into());
             }
             // Shut down the stream once the message has been sent.
             stream.shutdown(std::net::Shutdown::Write)?;
