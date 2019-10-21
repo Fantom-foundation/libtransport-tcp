@@ -4,6 +4,7 @@ use core::marker::PhantomData;
 use libcommon_rs::peer::{Peer, PeerId, PeerList};
 use libtransport::errors::{Error, Result};
 use libtransport::TransportSender;
+use log::debug;
 use serde::Serialize;
 use std::io::Write;
 use std::net::TcpStream;
@@ -33,6 +34,7 @@ where
     /// Sends data to a single, specified peer.
     /// Requires the data to be sent, as well as the net address to be sent too.
     fn send(&mut self, peer_address: String, data: Data) -> Result<()> {
+        debug!("sending to {}", peer_address);
         // Create a TCPstream to the specified address.
         let mut stream = TcpStream::connect(peer_address)?;
         // Serialize data into bytes so that it can be transferred.
