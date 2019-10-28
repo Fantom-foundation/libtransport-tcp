@@ -60,7 +60,7 @@ impl<Data> TCPtransportCfg<Data> {
     }
     /// Allows the modification of the net address of the transport config.
     /// Requires address to be added as String.
-    fn set_bind_net_addr(&mut self, address: String) -> Result<()> {
+    pub fn set_bind_net_addr(&mut self, address: String) -> Result<()> {
         // Set config address to the new address.
         self.bind_net_addr = address;
         // Create a new listener and bind new address to it.
@@ -226,6 +226,9 @@ where
             stream.shutdown(std::net::Shutdown::Write)?;
         }
         Ok(())
+    }
+    fn get_quit_tx(&self) -> Option<Sender<()>> {
+        Some(self.quit_tx.clone())
     }
 }
 /// Allow TCPtransport to be store in Pin (for async usage)

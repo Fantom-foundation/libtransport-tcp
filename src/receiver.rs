@@ -73,6 +73,9 @@ where
             pl: PhantomData,
         })
     }
+    fn get_quit_tx(&self) -> Option<Sender<()>> {
+        Some(self.quit_tx.clone())
+    }
 }
 
 /// Allow TCPreceiver to be store in Pin (for async usage)
