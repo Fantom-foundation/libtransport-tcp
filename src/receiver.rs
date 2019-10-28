@@ -103,7 +103,8 @@ where
                         None => {}
                         Some(ch) => {
                             if ch.try_recv().is_ok() {
-                                break; // meaning Poll::Pending as we are going down
+                                return Poll::Ready(None);
+                                //break; // meaning Poll::Pending as we are going down
                             }
                         }
                     }
