@@ -8,7 +8,6 @@ extern crate libtransport;
 extern crate serde_derive;
 
 use bincode::{deserialize, serialize};
-use buffer::ReadBuffer;
 use futures::stream::Stream;
 use futures::task::Context;
 use futures::task::Poll;
@@ -19,7 +18,7 @@ use libtransport::Transport;
 use serde::de::DeserializeOwned;
 use serde::Serialize;
 use std::io;
-use std::io::Write;
+use std::io::{BufReader, Read, Write};
 use std::marker::PhantomData;
 use std::net::{TcpListener, TcpStream};
 use std::pin::Pin;
@@ -267,23 +266,24 @@ where
                 }
                 Err(e) => panic!("error in accepting connection: {}", e),
                 // If we get a valid stream
-                Ok(mut stream) => {
+                Ok(stream) => {
                     // Create a buffer for the data
-                    let mut buffer: Vec<u8> = Vec::with_capacity(4096);
-                    loop {
-                        // Check to see if we get valid data from the stream.
-                        let n = match stream.read_buffer(&mut buffer) {
-                            // FIXME: what we do with panics in threads?
-                            Err(e) => panic!("error reading from a connection: {}", e),
-                            Ok(x) => x.len(),
-                        };
-                        // Check if the data is not empty.
-                        if n == 0 {
-                            // FIXME: check correct work in case when TCP next block delivery timeout is
-                            // greater than read_buffer() read timeout
-                            break;
-                        }
+                    let mut buffer = Vec::with_capacity(4096);
+                    let mut reader = BufReader::new(stream);
+
+                    // Check to see if we get valid data from the stream.
+                    let n = match reader.read_to_end(&mut buffer) {
+                        // FIXME: what we do with panics in threads?
+                        Err(e) => panic!("error reading from a connection: {}", e),
+                        Ok(x) => x,
+                    };
+                    // Check if the data is not empty.
+                    if n == 0 {
+                        // FIXME: check correct work in case when TCP next block delivery timeout is
+                        // greater than read_buffer() read timeout
+                        break;
                     }
+
                     // FIXME: what should we return in case of deserialize() failure,
                     // Poll::Ready(None) or Poll::Pending instead of panic?
                     // Deserialize data and package for use.
